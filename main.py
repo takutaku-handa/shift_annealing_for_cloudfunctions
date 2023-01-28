@@ -3,6 +3,8 @@ import math
 import numpy as np
 import dimod
 from neal import SimulatedAnnealingSampler
+from linebot import LineBotApi
+from linebot.models import TextSendMessage
 
 
 def hello_world(request):
@@ -207,6 +209,10 @@ class ShiftAnneal:
         return ret
 
 
+channel_access_token = "xGrW44hCkpMrzQ58fWVS3ZPAHEA+z7UOLHikUvMO6u592F1F+aTcxKURKx3+CFTT5nu/TTVlzV/I1XlRYiR6lrY7TReIRfLd9AARkClP7CIY5HEezWECcxApeXveX9cuh2RV2Vjqq8P5zeNEjah9XgdB04t89/1O/w1cDnyilFU="
+line_bot_api = LineBotApi(channel_access_token)
+
+
 def main(d):
     model = ShiftAnneal()
     model.setLIST(data_list=d)
@@ -220,3 +226,6 @@ def main(d):
     model.setConst()
     model.sample()
     print(model.sample_set.record[model.order][0])
+
+    user_id = "Ufa2bdd3e5bad5382d047a1c23c22cf71"
+    line_bot_api.push_message(user_id, messages=TextSendMessage(str(model.sample_set.record[model.order][0])))
