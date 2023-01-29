@@ -3,27 +3,24 @@ import math
 import numpy as np
 import dimod
 from neal import SimulatedAnnealingSampler
+from google.cloud import storage
 from linebot import LineBotApi
-from linebot.models import TextSendMessage
+from linebot.models import TextSendMessage, ImageSendMessage
+
+channel_access_token = "xGrW44hCkpMrzQ58fWVS3ZPAHEA+z7UOLHikUvMO6u592F1F+aTcxKURKx3+CFTT5nu/TTVlzV/I1XlRYiR6lrY7TReIRfLd9AARkClP7CIY5HEezWECcxApeXveX9cuh2RV2Vjqq8P5zeNEjah9XgdB04t89/1O/w1cDnyilFU="
+user_id = "Ufa2bdd3e5bad5382d047a1c23c22cf71"
+bucket_name = "shift_sa"
 
 
 def hello_world(request):
-    """Responds to any HTTP request.
-    Args:
-        request (flask.Request): HTTP request object.
-    Returns:
-        The response text or any set of values that can be turned into a
-        Response object using
-        `make_response <http://flask.pocoo.org/docs/1.0/api/#flask.Flask.make_response>`.
-    """
     request_json = request.get_json()
-    if request_json and 'message' in request_json:
-        print(request_json['message'])
-        main(request_json['message'])
-        return 'Got List!'
+    if request_json and "messages" in request_json:
+        print(request_json["messages"])
+        main(request_json["messages"])
+        return "Got List!"
     else:
-        print("Hello World")
-        return 'Hello World!'
+        print("No List!")
+        return "No List"
 
 
 class ShiftAnneal:
@@ -209,8 +206,22 @@ class ShiftAnneal:
         return ret
 
 
-channel_access_token = "xGrW44hCkpMrzQ58fWVS3ZPAHEA+z7UOLHikUvMO6u592F1F+aTcxKURKx3+CFTT5nu/TTVlzV/I1XlRYiR6lrY7TReIRfLd9AARkClP7CIY5HEezWECcxApeXveX9cuh2RV2Vjqq8P5zeNEjah9XgdB04t89/1O/w1cDnyilFU="
-line_bot_api = LineBotApi(channel_access_token)
+def upload_blob(bucket_name, source_file_name, destination_blob_name):
+    """Uploads a file to the bucket."""
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_filename(source_file_name)
+
+
+def upload_img(num):
+    file_name = "/tmp/result{0}.jpg".format(num)
+    destination = "result{0}.jpg".format(num)
+    upload_blob(bucket_name, file_name, destination)
+
+
+def get_img_url(num):
+    return "https://storage.googleapis.com/{0}/result{1}.JPG".format(bucket_name, num)
 
 
 def main(d):
@@ -225,7 +236,17 @@ def main(d):
                    num_reads=5)
     model.setConst()
     model.sample()
-    print(model.sample_set.record[model.order][0])
+    first = model.sample_set.record[model.order][0]
+    print(first)
+    print(model.getPenalty(sample=first[0]))
 
-    user_id = "Ufa2bdd3e5bad5382d047a1c23c22cf71"
+    """ここで結果の画像をtmpフォルダに生成したのち、それをアップロードする工程"""
+
+    line_bot_api = LineBotApi(channel_access_token)
     line_bot_api.push_message(user_id, messages=TextSendMessage(str(model.sample_set.record[model.order][0])))
+    line_bot_api.push_message(user_id, messages=ImageSendMessage(original_content_url=get_img_url(1),
+                                                                 preview_image_url=get_img_url(1)))
+
+
+if __name__ == "__main__":
+    main(d=[["bob", 0, 1, 2, 0, 2, 1, 3], ["tom", 1, 0, 0, 1, 0, 2, 3]])
