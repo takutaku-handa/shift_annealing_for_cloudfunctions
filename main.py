@@ -16,13 +16,12 @@ bucket_name = "shift_sa"
 
 def hello_world(request):
     request_json = request.get_json()
-    if request_json and "messages" in request_json:
-        print(request_json["messages"])
-        main(request_json["messages"])
-        return "Got List!"
+    if request_json and "list" in request_json and "param" in request_json:
+        main(request_json["list"], request_json["param"])
+        return "Success!"
     else:
         print("No List!")
-        return "No List"
+        return "Error!"
 
 
 class ShiftAnneal:
@@ -245,29 +244,87 @@ def create_overview_img(model, size: int):
     return url
 
 
-def main(d):
+def create_sample_img(model, sample_id):
+    sample = model.sample_set.record[model.order][sample_id][0]
+    const = model.const
+    color = []
+    tag = []
+    clm = ["w" for _ in range(int(model.DAY / 2))]
+    for m in range(model.MANPOWER):
+        tmp_col = []
+        tmp_tag = []
+        for d in range(int(model.DAY / 2)):
+            lunch = sample[model.DAY * m + 2 * d]
+            dinner = sample[model.DAY * m + 2 * d + 1]
+            c_lunch = const[m][2 * d]
+            c_dinner = const[m][2 * d + 1]
+            if lunch:
+                if dinner:
+                    tmp_col.append("lightgreen")
+                    clm[d] = "red"
+                else:
+                    tmp_col.append("orange")
+                    if c_lunch:
+                        clm[d] = "red"
+            else:
+                if dinner:
+                    tmp_col.append("skyblue")
+                    if c_dinner:
+                        clm[d] = "red"
+                else:
+                    tmp_col.append("w")
+            tmp_tag.append("{0} {1}".format(c_lunch, c_dinner))
+        color.append(tmp_col)
+        tag.append(tmp_tag)
+
+    fig = plt.figure(figsize=(7, model.MANPOWER * 0.3), dpi=240)
+    ax1 = fig.add_subplot(111)
+    ax1.axis('off')
+    ax1.table(cellText=np.array(tag), colLabels=[i for i in range(1, int(model.DAY / 2) + 1)],
+              rowLabels=model.NAME, loc="center", cellColours=color, cellLoc="center", colColours=clm)
+    fig.tight_layout()
+    fn = "sample{0}_{1}.jpg".format(sample_id, time.time())
+    plt.savefig("/tmp/{0}".format(fn))
+    plt.close()
+
+    url = upload_img(fn)
+    return url
+
+
+def main(ls, pr):
     model = ShiftAnneal()
-    model.setLIST(data_list=d)
-    model.setParam(des_const=1000,  # -----------------------------------
-                   seq_const=1000,  # -----------------------------------
-                   shift_size_const=100,  # -----------------------------
-                   workday_const=1,  # ----------------------------------
-                   shift_size_limit=[1 for _ in range(62)],  # ----------
+    model.setLIST(data_list=ls)
+    ssl = []
+    for lim in pr[0]:
+        if lim == "":
+            ssl.append(1)
+        else:
+            ssl.append(int(lim))
+    model.setParam(des_const=6 * pr[1][0],
+                   seq_const=30 * pr[1][1],
+                   shift_size_const=30 * pr[1][2],
+                   workday_const=1 * pr[1][3],
+                   shift_size_limit=ssl,
                    workday=["ignore"],  # setLISTで設定しているから使わない。
-                   num_reads=10)  # -------------------------------------
+                   num_reads=10)
     model.setConst()
     model.sample()
-    first = model.sample_set.record[model.order][0]
-    print(first)
-    print(model.getPenalty(sample=first[0]))
+    # first = model.sample_set.record[model.order][0]
 
     line_bot_api = LineBotApi(channel_access_token)
-    line_bot_api.push_message(user_id, messages=TextSendMessage(str(model.sample_set.record[model.order][0])))
-
     url_overview = create_overview_img(model, 8)
+    # line_bot_api.push_message(user_id, messages=TextSendMessage())
     line_bot_api.push_message(user_id, messages=ImageSendMessage(original_content_url=url_overview,
                                                                  preview_image_url=url_overview))
 
+    url_sample = create_sample_img(model, 0)
+    line_bot_api.push_message(user_id, messages=ImageSendMessage(original_content_url=url_sample,
+                                                                 preview_image_url=url_sample))
+
 
 if __name__ == "__main__":
-    main(d=[["bob", 0, 1, 2, 0, 2, 1, 3], ["tom", 1, 0, 0, 1, 0, 2, 3]])
+    main(ls=[["bob", 0, 1, 2, 0, 2, 1, 0, 2, 3],
+             ["tom", 1, 0, 0, 1, 0, 2, 1, 2, 3],
+             ["sala", 0, 3, 2, 1, 0, 2, 1, 1, 3]],
+         pr=[[1, 1, 1, 1, 1, 1, 1, 1],
+             [4, 5, 3, 1]])
