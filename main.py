@@ -2,10 +2,12 @@ import csv
 import math
 import numpy as np
 import dimod
+import time
 from neal import SimulatedAnnealingSampler
 from google.cloud import storage
 from linebot import LineBotApi
 from linebot.models import TextSendMessage, ImageSendMessage
+import matplotlib.pyplot as plt
 
 channel_access_token = "xGrW44hCkpMrzQ58fWVS3ZPAHEA+z7UOLHikUvMO6u592F1F+aTcxKURKx3+CFTT5nu/TTVlzV/I1XlRYiR6lrY7TReIRfLd9AARkClP7CIY5HEezWECcxApeXveX9cuh2RV2Vjqq8P5zeNEjah9XgdB04t89/1O/w1cDnyilFU="
 user_id = "Ufa2bdd3e5bad5382d047a1c23c22cf71"
@@ -71,7 +73,7 @@ class ShiftAnneal:
         self.SHIFT_SIZE_CONST = shift_size_const
         self.SHIFT_SIZE_LIMIT = shift_size_limit
         self.WORKDAY_CONST = workday_const
-        self.WORKDAY = workday
+        # self.WORKDAY = workday
         self.NUM_READS = num_reads
 
     def setConst(self):
@@ -198,54 +200,73 @@ class ShiftAnneal:
         if pena_dist:
             pena_dist = round(pena_dist, 1)
 
-        ret = [("0", pena_desire[0]), ("1", pena_desire[1]), ("2", pena_desire[2]), ("3", pena_desire[3]),
-               ("昼夜連勤", pena_seq), ("人数超過", pena_over), ("人数不足", pena_lack),
-               ("ばらけ具合", pena_dist), ("勤務日数希望違反", pena_workday),
-               ("最大連勤", max_seq_work), ("最大連休", max_seq_off)]
+        ret = [("Lv0", pena_desire[0]), ("Lv1", pena_desire[1]), ("Lv2", pena_desire[2]), ("Lv3", pena_desire[3]),
+               ("L/D", pena_seq), ("Over", pena_over), ("Lack", pena_lack),
+               ("Dist", pena_dist), ("Work", pena_workday),
+               ("MaxSeq", max_seq_work), ("MaxOff", max_seq_off)]
 
         return ret
 
 
-def upload_blob(bucket_name, source_file_name, destination_blob_name):
-    """Uploads a file to the bucket."""
+def upload_img(fn):
+    source_file = "/tmp/{0}".format(fn)
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(destination_blob_name)
-    blob.upload_from_filename(source_file_name)
+    blob = bucket.blob(fn)
+    blob.upload_from_filename(source_file)
+    blob.make_public()
+    return blob.public_url
 
 
-def upload_img(num):
-    file_name = "/tmp/result{0}.jpg".format(num)
-    destination = "result{0}.jpg".format(num)
-    upload_blob(bucket_name, file_name, destination)
+def create_overview_img(model, size: int):
+    keys = []
+    for key in model.getPenalty(model.sample_set.record[model.order][0][0]):
+        keys.append(key[0])
+    sample_list = model.sample_set.record[model.order][:size]
+    data = []
+    for sample in sample_list:
+        penalty = model.getPenalty(sample[0])
+        tmp = []
+        for p in penalty:
+            tmp.append(p[1])
+        data.append(tmp)
 
+    fig = plt.figure(figsize=(5, 3), dpi=240)
+    ax1 = fig.add_subplot(111)
+    ax1.axis('off')
+    ax1.table(cellText=np.array(data).T.astype(int), colLabels=[i for i in range(1, size + 1)],
+              rowLabels=keys, loc="center")
+    fig.tight_layout()
+    fn = "overview_{0}.jpg".format(time.time())
+    plt.savefig("/tmp/{0}".format(fn))
+    plt.close()
 
-def get_img_url(num):
-    return "https://storage.googleapis.com/{0}/result{1}.JPG".format(bucket_name, num)
+    url = upload_img(fn)
+    return url
 
 
 def main(d):
     model = ShiftAnneal()
     model.setLIST(data_list=d)
-    model.setParam(des_const=1000,
-                   seq_const=1000,
-                   shift_size_const=100,
-                   workday_const=1,
-                   shift_size_limit=[1 for _ in range(62)],
-                   workday=[30, 30],
-                   num_reads=5)
+    model.setParam(des_const=1000,  # -----------------------------------
+                   seq_const=1000,  # -----------------------------------
+                   shift_size_const=100,  # -----------------------------
+                   workday_const=1,  # ----------------------------------
+                   shift_size_limit=[1 for _ in range(62)],  # ----------
+                   workday=["ignore"],  # setLISTで設定しているから使わない。
+                   num_reads=10)  # -------------------------------------
     model.setConst()
     model.sample()
     first = model.sample_set.record[model.order][0]
     print(first)
     print(model.getPenalty(sample=first[0]))
 
-    """ここで結果の画像をtmpフォルダに生成したのち、それをアップロードする工程"""
-
     line_bot_api = LineBotApi(channel_access_token)
     line_bot_api.push_message(user_id, messages=TextSendMessage(str(model.sample_set.record[model.order][0])))
-    line_bot_api.push_message(user_id, messages=ImageSendMessage(original_content_url=get_img_url(1),
-                                                                 preview_image_url=get_img_url(1)))
+
+    url_overview = create_overview_img(model, 8)
+    line_bot_api.push_message(user_id, messages=ImageSendMessage(original_content_url=url_overview,
+                                                                 preview_image_url=url_overview))
 
 
 if __name__ == "__main__":
