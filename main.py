@@ -17,7 +17,7 @@ class ShiftAnneal:
         self.DESIRE_LEVEL = 0  # int
 
         self.DESIRE_PENALTY = []  # desire levelの数 * 1 int/float
-        self.SEQ_PENALTY = 0  # 連勤ルールごとに決まる
+        self.SEQ_PENALTY = []  # 連勤ルールごとに決まる ? * 3 * ?
         self.SHIFT_SIZE_PENALTY = []  # d * 1
         self.SUM_WORKDAY_PENALTY = []  # m * 1
 
@@ -242,6 +242,39 @@ class ShiftAnneal:
     def addSeq_Constraint(self):
         if not all([self.MAN_SIZE, self.DAY_SIZE]):
             print("Error: データとパラメータの設定を行ってから、連勤の制約式を設定してください。")
+
+        for seq_pena in self.SEQ_PENALTY:
+            target = seq_pena[0]
+            if target == ["all"]:
+                target = [_ for _ in range(self.MAN_SIZE)]
+            for t in target:
+                if type(t) != int or (type(t) == int and t < 0):
+                    print("Error: 連勤制約の対象者は、非負整数の配列もしくは['all']である必要があります。")
+
+            coefficient = []
+            for pat in seq_pena[1]:
+                try:
+                    a = int(pat.split("i")[0])
+                    b = int(pat.split("i")[1])
+                except ValueError or IndexError or AttributeError:
+                    print("Error: 連勤制約のパターンの記述ルール(ex: -2i+4, 1i-11)に従っていません。")
+                    return
+                else:
+                    coefficient.append([a, b])
+
+            for i in range(self.DAY_SIZE):
+                d1 = coefficient[0][0] * i + coefficient[0][1]
+                d2 = coefficient[1][0] * i + coefficient[1][1]
+                if d1 < 0 or d2 < 0:
+                    continue
+                if self.DAY_SIZE <= d1 or self.DAY_SIZE <= d2:
+                    break
+                for m in target:
+                    key = ("x_{0}".format(self.getID(m, d1)), "x_{0}".format(self.getID(m, d2)))
+                    try:
+                        self.quadratic[key] += seq_pena[2]
+                    except KeyError:
+                        self.quadratic[key] = seq_pena[2]
 
     def addShift_Size_Constraint(self):
         if not all([self.MAN_SIZE, self.DAY_SIZE, self.SHIFT_SIZE_LIMIT, self.SHIFT_SIZE_PENALTY]):
