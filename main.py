@@ -113,10 +113,8 @@ class ShiftAnneal:
         for name in name_list:
             if name in self.NAME:
                 print("Error: 同じ名前の人が複数存在します。")
-                return
             elif (not name) or (len(name) > 10):
                 print("Error: 名前は1文字以上10文字以下で登録してください。")
-                return
             else:
                 self.NAME.append(name)
 
@@ -137,7 +135,6 @@ class ShiftAnneal:
                     for des in desire:
                         if type(des) != int or des < 0:
                             print("Error: 希望度は非負整数である必要があります。")
-                            return
                     self.DESIRE.append(desire)
 
     def setShift_Size_Limit(self, ssl_list: list):
@@ -149,7 +146,6 @@ class ShiftAnneal:
             for ssl in ssl_list:
                 if ssl < 0 or type(ssl) != int:
                     print("Error: シフトサイズは非負整数である必要があります。")
-                    return
                 else:
                     self.SHIFT_SIZE_LIMIT.append(ssl)
 
@@ -164,44 +160,136 @@ class ShiftAnneal:
                     self.SUM_WORKDAY_LIMIT.append(sw)
                 else:
                     print("Error: 勤務日数希望は整数か要素数2の整数配列である必要があります。")
-                    return
 
-    def setDesire_Penalty(self, desire_const_list: list):
+    def setDesire_Penalty(self, desire_penalty_list: list):
         if not self.DESIRE:
             print("Error: 希望度の設定を行ってから、希望度のペナルティを設定してください。")
-        elif len(desire_const_list) - 1 < self.DESIRE_LEVEL:
+        elif len(desire_penalty_list) - 1 < self.DESIRE_LEVEL:
             print("Error: 設定された希望度に対し、ペナルティの数が足りません。")
         else:
-            for desire_const in desire_const_list:
-                if type(desire_const) != int or desire_const < 0:
+            for desire_pena in desire_penalty_list:
+                if type(desire_pena) != int or desire_pena < 0:
                     print("Error: 希望度のペナルティ値は非負整数である必要があります。")
-                    return
                 else:
-                    self.DESIRE_PENALTY.append(desire_const)
+                    self.DESIRE_PENALTY.append(desire_pena)
 
-    def setShift_Size_Penalty(self, ssl_const_list: list):
+    def setSeq_Penalty(self, seq_penalty_list):
+        if not self.MAN_SIZE:
+            print("Error: 名前の登録を行ってから、連勤のペナルティ値を設定してください。")
+        else:
+            for seq_penalty in seq_penalty_list:
+                if len(seq_penalty) != 3:
+                    print("Error: 連勤のペナルティは「対象者(配列)」「制限するパターン(配列)」「ペナルティ係数」の３つが必要です。")
+                elif type(seq_penalty[0]) != list:
+                    print("Error: 連勤のペナルティの「対象者」は配列である必要があります。")
+                elif type(seq_penalty[1]) != list or seq_penalty_list[1] != 2:
+                    print("Error: 連勤のペナルティの「制限するパターン」は要素数2の配列である必要があります。")
+                elif type(seq_penalty[1]) != int or seq_penalty[1] < 0:
+                    print("Error: 連勤のペナルティの「ペナルティ係数」は非負整数である必要があります。")
+                else:
+                    self.SEQ_PENALTY.append(seq_penalty)
+
+    def setShift_Size_Penalty(self, ssl_penalty_list: list):
         if not self.DAY_SIZE:
             print("Error: 希望度の設定を行ってから、シフトサイズのペナルティを設定してください。")
-        elif len(ssl_const_list) != self.DAY_SIZE:
+        elif len(ssl_penalty_list) != self.DAY_SIZE:
             print("Error: シフトサイズのペナルティの数と希望度の列数が一致しません。")
         else:
-            for ssl_const in ssl_const_list:
-                if type(ssl_const) != int or ssl_const < 0:
+            for ssl_pena in ssl_penalty_list:
+                if type(ssl_pena) != int or ssl_pena < 0:
                     print("Error: シフトサイズのペナルティ値は非負整数である必要があります。")
                 else:
-                    self.SHIFT_SIZE_PENALTY.append(ssl_const)
+                    self.SHIFT_SIZE_PENALTY.append(ssl_pena)
 
-    def setSum_Workday_Penalty(self, sw_const_list: list):
+    def setSum_Workday_Penalty(self, sw_penalty_list: list):
         if not self.NAME:
             print("Error: 名前の設定を行ってから、勤務日数希望のペナルティを設定してください。")
-        elif len(sw_const_list) != self.MAN_SIZE:
+        elif len(sw_penalty_list) != self.MAN_SIZE:
             print("Error: 勤務日数希望のペナルティの数と名前の数が一致しません。")
         else:
-            for sw_const in sw_const_list:
-                if type(sw_const) != int or sw_const < 0:
+            for sw_pena in sw_penalty_list:
+                if type(sw_pena) != int or sw_pena < 0:
                     print("Error: 勤務日数希望のペナルティ値は非負整数である必要があります。")
                 else:
-                    self.SUM_WORKDAY_PENALTY.append(sw_const)
+                    self.SUM_WORKDAY_PENALTY.append(sw_pena)
+
+    def addDesire_Constraint(self):
+        if not all([self.MAN_SIZE, self.DAY_SIZE, self.DESIRE, self.DESIRE_PENALTY]):
+            print("Error: データとパラメータの設定を行ってから、希望度の制約式を設定してください。")
+        else:
+            for i in range(self.MAN_SIZE):
+                for j in range(self.DAY_SIZE):
+                    key = "x_{0}".format(self.getID(i, j))
+                    liner_const = self.DESIRE_PENALTY[self.DESIRE[i][j]]
+                    try:
+                        self.liner[key] += liner_const
+                    except KeyError:
+                        self.liner[key] = liner_const
+
+    def addSeq_Constraint(self):
+        if not all([self.MAN_SIZE, self.DAY_SIZE]):
+            print("Error: データとパラメータの設定を行ってから、連勤の制約式を設定してください。")
+
+    def addShift_Size_Constraint(self):
+        if not all([self.MAN_SIZE, self.DAY_SIZE, self.SHIFT_SIZE_LIMIT, self.SHIFT_SIZE_PENALTY]):
+            print("Error: データとパラメータの設定を行ってから、シフトサイズの制約式を設定してください。")
+
+        for d in range(self.DAY_SIZE):
+            # １次
+            for m in range(self.MAN_SIZE):
+                key = "x_{0}".format(self.getID(m, d))
+                liner_const = - 2 * self.SHIFT_SIZE_LIMIT[d] * self.SHIFT_SIZE_PENALTY[d]  # １シフトに入る人数制約による
+                try:
+                    self.liner[key] += liner_const
+                except KeyError:
+                    self.liner[key] = liner_const
+            # ２次
+            for m1 in range(self.MAN_SIZE):
+                for m2 in range(m1, self.MAN_SIZE):
+                    key = ("x_{0}".format(self.getID(m1, d)), "x_{0}".format(self.getID(m2, d)))
+                    if m1 == m2:
+                        quad_const = 1 * self.SHIFT_SIZE_PENALTY[d]
+                    else:
+                        quad_const = 2 * self.SHIFT_SIZE_PENALTY[d]
+                    try:
+                        self.quadratic[key] += quad_const
+                    except KeyError:
+                        self.quadratic[key] = quad_const
+
+    def addSum_Workday_Constraint(self):
+        if not all([self.MAN_SIZE, self.DAY_SIZE, self.SUM_WORKDAY_LIMIT, self.SUM_WORKDAY_PENALTY]):
+            print("Error: データとパラメータの設定を行ってから、シフトサイズの制約式を設定してください。")
+
+        for m in range(self.MAN_SIZE):
+            limit = self.SUM_WORKDAY_LIMIT
+            if type(limit) == int:
+                limit = [limit, self.DAY_SIZE]
+            num_unit = self.DAY_SIZE - limit[1] + 1
+
+            for day_unit_id in range(0, num_unit):
+                # 1次
+                for d in range(day_unit_id, day_unit_id + limit[1]):
+                    key = "x_{0}".format(self.getID(m, d))
+                    liner_const = - 2 / num_unit * self.SUM_WORKDAY_LIMIT[m] * self.SUM_WORKDAY_PENALTY[m]
+                    try:
+                        self.liner[key] += liner_const
+                    except KeyError:
+                        self.liner[key] = liner_const
+                # 2次
+                for d1 in range(day_unit_id, day_unit_id + limit[1]):
+                    for d2 in range(d1, day_unit_id + limit[1]):
+                        key = ("x_{0}".format(self.getID(m, d1)), "x_{0}".format(self.getID(m, d2)))
+                        if d1 == d2:
+                            quad_const = 1 / num_unit * self.SUM_WORKDAY_PENALTY[m]
+                        else:
+                            quad_const = 2 / num_unit * self.SUM_WORKDAY_PENALTY[m]
+                        try:
+                            self.quadratic[key] += quad_const
+                        except KeyError:
+                            self.quadratic[key] = quad_const
+
+    def setConstraint(self):
+        pass
 
     def sample(self):
         bqm = dimod.BinaryQuadraticModel(self.liner, self.quadratic, 0, "BINARY")
