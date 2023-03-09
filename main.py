@@ -283,6 +283,9 @@ class ShiftAnneal:
             if type(limit) == int:
                 limit = [limit, self.DAY_SIZE]
 
+            if limit[1] == 0:  # 分母がゼロの時は、勤務日数希望なしとして扱う
+                return
+
             num_unit = self.DAY_SIZE - limit[1] + 1
 
             for day_unit_id in range(0, num_unit):
