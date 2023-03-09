@@ -1,5 +1,3 @@
-import json
-
 import numpy as np
 import dimod
 from neal import SimulatedAnnealingSampler
@@ -21,7 +19,7 @@ class ShiftAnneal:
         self.SHIFT_SIZE_PENALTY = []  # d * 1
         self.SUM_WORKDAY_PENALTY = []  # m * 1
 
-        self.NUM_READS = 0  # int
+        self.NUM_READS = 100  # int
 
         self.liner = {}
         self.quadratic = {}
@@ -30,84 +28,6 @@ class ShiftAnneal:
 
     def getID(self, m, d):
         return self.DAY_SIZE * m + d + 100000000
-
-    def setLIST(self, data_list: list):
-        for row in data_list:
-            self.NAME.append(row[0])
-            self.SUM_WORKDAY_LIMIT.append(int(row[-1]))
-            self.DESIRE.append([int(i) for i in row[1: -1]])
-        self.MAN_SIZE = len(self.DESIRE)
-        self.DAY_SIZE = len(self.DESIRE[0])
-
-    def setParam(self, des_const, seq_const, shift_size_const, shift_size_limit: list, workday_const, workday: list,
-                 num_reads):
-        self.DESIRE_PENALTY = des_const
-        self.SEQ_PENALTY = seq_const
-        self.SHIFT_SIZE_PENALTY = shift_size_const
-        self.SHIFT_SIZE_LIMIT = shift_size_limit
-        self.SUM_WORKDAY_PENALTY = workday_const
-        # self.WORKDAY = workday
-        self.NUM_READS = num_reads
-
-    def setConst(self):
-        # １次
-        for i in range(self.MAN_SIZE):
-            for j in range(self.DAY_SIZE):
-                liner_const = (self.DESIRE[i][j] * self.DESIRE_PENALTY)  # 出勤希望度による
-                liner_const -= 2 * self.SHIFT_SIZE_LIMIT[j] * self.SHIFT_SIZE_PENALTY  # １シフトに入る人数制約による
-                liner_const -= 2 * self.SUM_WORKDAY_LIMIT[i] * self.SUM_WORKDAY_PENALTY  # 勤務日数希望による
-                key = "x_{0}".format(self.getID(i, j))
-                try:
-                    self.liner[key] += liner_const
-                except KeyError:
-                    self.liner[key] = liner_const
-
-        # ２次
-        # 昼夜連勤の禁止による
-        for i in range(self.MAN_SIZE):
-            for j in range(int(self.DAY_SIZE / 2)):
-                j *= 2
-                key = ("x_{0}".format(self.getID(i, j)), "x_{0}".format(self.getID(i, j + 1)))
-                try:
-                    self.quadratic[key] += self.SEQ_PENALTY
-                except KeyError:
-                    self.quadratic[key] = self.SEQ_PENALTY
-
-        # １シフトに入る人数制約による
-        for i1 in range(self.MAN_SIZE):
-            for i2 in range(i1, self.MAN_SIZE):
-                if i1 == i2:
-                    for j in range(self.DAY_SIZE):
-                        key = ("x_{0}".format(self.getID(i1, j)), "x_{0}".format(self.getID(i2, j)))
-                        try:
-                            self.quadratic[key] += 1 * self.SHIFT_SIZE_PENALTY
-                        except KeyError:
-                            self.quadratic[key] = 1 * self.SHIFT_SIZE_PENALTY
-                else:
-                    for j in range(self.DAY_SIZE):
-                        key = ("x_{0}".format(self.getID(i1, j)), "x_{0}".format(self.getID(i2, j)))
-                        try:
-                            self.quadratic[key] += 2 * self.SHIFT_SIZE_PENALTY
-                        except KeyError:
-                            self.quadratic[key] = 2 * self.SHIFT_SIZE_PENALTY
-
-        # 勤務日数希望による
-        for j1 in range(self.DAY_SIZE):
-            for j2 in range(j1, self.DAY_SIZE):
-                if j1 == j2:
-                    for i in range(self.MAN_SIZE):
-                        key = ("x_{0}".format(self.getID(i, j1)), "x_{0}".format(self.getID(i, j2)))
-                        try:
-                            self.quadratic[key] += 1 * self.SUM_WORKDAY_PENALTY
-                        except KeyError:
-                            self.quadratic[key] = 1 * self.SUM_WORKDAY_PENALTY
-                else:
-                    for i in range(self.MAN_SIZE):
-                        key = ("x_{0}".format(self.getID(i, j1)), "x_{0}".format(self.getID(i, j2)))
-                        try:
-                            self.quadratic[key] += 2 * self.SUM_WORKDAY_PENALTY
-                        except KeyError:
-                            self.quadratic[key] = 2 * self.SUM_WORKDAY_PENALTY
 
     def setName(self, name_list: list):
         self.NAME = []
@@ -155,13 +75,13 @@ class ShiftAnneal:
                 else:
                     self.SHIFT_SIZE_LIMIT.append(ssl)
 
-    def setSum_Workday_Limit(self, sw_list: list or int):
+    def setSum_Workday_Limit(self, swl_list: list or int):
         if not self.MAN_SIZE:
             print("Error: 名前の登録を行ってから、勤務日数希望の設定をしてください。")
-        elif len(sw_list) != self.MAN_SIZE:
+        elif len(swl_list) != self.MAN_SIZE:
             print("Error: 勤務日数希望の数と名前の数が一致しません。")
         else:
-            for sw in sw_list:
+            for sw in swl_list:
                 if (type(sw) != list and type(sw) != int) or (
                         type(sw) == list and len(sw) != 2) or (
                         type(sw) == int and (not 0 <= sw <= self.DAY_SIZE)
@@ -225,6 +145,16 @@ class ShiftAnneal:
                     print("Error: 勤務日数希望のペナルティ値は非負整数である必要があります。")
                 else:
                     self.SUM_WORKDAY_PENALTY.append(sw_pena)
+
+    def setRequiredData(self, name, desire, desire_penalty, shift_size_limit, shift_size_penalty, sum_workday_limit,
+                        sum_workday_penalty):
+        self.setName(name)
+        self.setDesire(desire)
+        self.setDesire_Penalty(desire_penalty)
+        self.setShift_Size_Limit(shift_size_limit)
+        self.setShift_Size_Penalty(shift_size_penalty)
+        self.setSum_Workday_Limit(sum_workday_limit)
+        self.setSum_Workday_Penalty(sum_workday_penalty)
 
     def addDesire_Constraint(self):
         if not all([self.MAN_SIZE, self.DAY_SIZE, self.DESIRE, self.DESIRE_PENALTY]):
@@ -338,8 +268,11 @@ class ShiftAnneal:
                         except KeyError:
                             self.quadratic[key] = quad_const
 
-    def setConstraint(self):
-        pass
+    def addRequiredConstraints(self):
+        self.addDesire_Constraint()
+        self.addSeq_Constraint()
+        self.addShift_Size_Constraint()
+        self.addSum_Workday_Constraint()
 
     def sample(self):
         bqm = dimod.BinaryQuadraticModel(self.liner, self.quadratic, 0, "BINARY")
@@ -359,25 +292,11 @@ class ShiftAnneal:
         return ret
 
 
-def main(request):
-    request_json = request.get_json()
-    if request_json and "list" in request_json and "param" in request_json:
-        first = optimize(request_json["list"], request_json["param"])
-        return json.dumps({"State": "success", "result": first})
-    else:
-        return json.dumps({"State": "error"})
-
-
-def optimize(ls, pr):
+def optimize(name, desire, desire_penalty, shift_size_limit, shift_size_penalty, sum_workday_limit,
+             sum_workday_penalty):
     model = ShiftAnneal()
-    model.setLIST(data_list=ls)
-    model.setParam(des_const=6 * pr[1][0],
-                   seq_const=30 * pr[1][1],
-                   shift_size_const=30 * pr[1][2],
-                   workday_const=1 * pr[1][3],
-                   shift_size_limit=pr[0],
-                   workday=["ignore"],  # setLISTで設定しているから使わない。
-                   num_reads=100)
-    model.setConst()
+    model.setRequiredData(name, desire, desire_penalty, shift_size_limit, shift_size_penalty, sum_workday_limit,
+                          sum_workday_penalty)
+    model.addRequiredConstraints()
     model.sample()
     return model.getResult()
