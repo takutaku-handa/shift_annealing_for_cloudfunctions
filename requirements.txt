@@ -1,0 +1,5 @@
+# Function dependencies, for example:
+# package>=version
+numpy==1.24.2
+dimod==0.12.4
+dwave-neal==0.6.0
