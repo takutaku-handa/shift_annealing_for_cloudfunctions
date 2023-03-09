@@ -117,7 +117,7 @@ class ShiftAnneal:
             elif (not name) or (len(name) > 10):
                 print("Error: 名前は1文字以上10文字以下で登録してください。")
             else:
-                self.NAME.append(name)
+                self.NAME.append(str(name))
 
         self.MAN_SIZE = len(self.NAME)
 
@@ -137,9 +137,7 @@ class ShiftAnneal:
                     print("Error: 希望度の列数が統一されていません。")
                 else:
                     for des in desire:
-                        if type(des) != int:
-                            print("Error: 希望度は非負整数である必要があります。")
-                        elif des < 0:
+                        if type(des) != int or (type(des) == int and des < 0):
                             print("Error: 希望度は非負整数である必要があります。")
                         else:
                             self.DESIRE.append(desire)
@@ -152,9 +150,7 @@ class ShiftAnneal:
             print("Error: シフトサイズの数と希望度の列数が一致しません。")
         else:
             for ssl in ssl_list:
-                if type(ssl) != int:
-                    print("Error: シフトサイズは非負整数である必要があります。")
-                elif ssl < 0:
+                if type(ssl) != int or (type(ssl) == int and ssl < 0):
                     print("Error: シフトサイズは非負整数である必要があります。")
                 else:
                     self.SHIFT_SIZE_LIMIT.append(ssl)
@@ -166,16 +162,15 @@ class ShiftAnneal:
             print("Error: 勤務日数希望の数と名前の数が一致しません。")
         else:
             for sw in sw_list:
-                if type(sw) != list and type(sw) != int:
-                    print("Error: 勤務日数希望は非負整数か要素数2の整数配列である必要があります。")
-                elif type(sw) == list and (len(sw) != 2):
-                    print("Error: 勤務日数希望は非負整数か要素数2の整数配列である必要があります。")
+                if (type(sw) != list and type(sw) != int) or (
+                        type(sw) == list and len(sw) != 2) or (
+                        type(sw) == int and (not 0 <= sw <= self.DAY_SIZE)
+                ):
+                    print("Error: 勤務日数希望は0以上希望度の列数以下の非負整数もしくは配列（要素数2）である必要があります。")
                 elif type(sw) == list and (type(sw[0]) != int or type(sw[1]) != int):
-                    print("Error: 勤務日数希望は非負整数か要素数2の整数配列である必要があります。")
-                elif type(sw) == int and (not 0 <= sw <= self.DAY_SIZE):
-                    print("Error: 勤務日数希望は0以上希望度の列数以下である必要があります。")
-                elif type(sw) == list and (not 0 <= sw[0] <= self.DAY_SIZE) or (not 0 <= sw[1] <= self.DAY_SIZE):
-                    print("Error: 勤務日数希望は0以上希望度の列数以下である必要があります。")  # 分母が0のときは希望無しとして扱う
+                    print("Error: 勤務日数希望は0以上希望度の列数以下の非負整数もしくは配列（要素数2）である必要があります。")
+                elif type(sw) == list and (not 0 <= sw[0] <= self.DAY_SIZE or not 0 <= sw[1] <= self.DAY_SIZE):
+                    print("Error: 勤務日数希望は0以上希望度の列数以下の非負整数もしくは配列（要素数2）である必要があります。")
                 else:
                     self.SUM_WORKDAY_LIMIT.append(sw)
 
@@ -186,7 +181,7 @@ class ShiftAnneal:
             print("Error: 設定された希望度に対し、ペナルティの数が足りません。")
         else:
             for desire_pena in desire_penalty_list:
-                if type(desire_pena) != int or desire_pena < 0:
+                if type(desire_pena) != int or (type(desire_pena) == int and desire_pena < 0):
                     print("Error: 希望度のペナルティ値は非負整数である必要があります。")
                 else:
                     self.DESIRE_PENALTY.append(desire_pena)
@@ -196,13 +191,13 @@ class ShiftAnneal:
             print("Error: 名前の登録を行ってから、連勤のペナルティ値を設定してください。")
         else:
             for seq_penalty in seq_penalty_list:
-                if len(seq_penalty) != 3:
+                if type(seq_penalty) != list or (type(seq_penalty) == list and len(seq_penalty) != 3):
                     print("Error: 連勤のペナルティは「対象者(配列)」「制限するパターン(配列)」「ペナルティ係数」の３つが必要です。")
                 elif type(seq_penalty[0]) != list:
                     print("Error: 連勤のペナルティの「対象者」は配列である必要があります。")
-                elif type(seq_penalty[1]) != list or seq_penalty_list[1] != 2:
+                elif type(seq_penalty[1]) != list or (type(seq_penalty[1]) == list and len(seq_penalty[1]) != 2):
                     print("Error: 連勤のペナルティの「制限するパターン」は要素数2の配列である必要があります。")
-                elif type(seq_penalty[1]) != int or seq_penalty[1] < 0:
+                elif type(seq_penalty[2]) != int or (type(seq_penalty[2]) == int and seq_penalty[2] < 0):
                     print("Error: 連勤のペナルティの「ペナルティ係数」は非負整数である必要があります。")
                 else:
                     self.SEQ_PENALTY.append(seq_penalty)
@@ -214,7 +209,7 @@ class ShiftAnneal:
             print("Error: シフトサイズのペナルティの数と希望度の列数が一致しません。")
         else:
             for ssl_pena in ssl_penalty_list:
-                if type(ssl_pena) != int or ssl_pena < 0:
+                if type(ssl_pena) != int or (type(ssl_pena) == int and ssl_pena < 0):
                     print("Error: シフトサイズのペナルティ値は非負整数である必要があります。")
                 else:
                     self.SHIFT_SIZE_PENALTY.append(ssl_pena)
@@ -226,7 +221,7 @@ class ShiftAnneal:
             print("Error: 勤務日数希望のペナルティの数と名前の数が一致しません。")
         else:
             for sw_pena in sw_penalty_list:
-                if type(sw_pena) != int or sw_pena < 0:
+                if type(sw_pena) != int or (type(sw_pena) == int and sw_pena < 0):
                     print("Error: 勤務日数希望のペナルティ値は非負整数である必要があります。")
                 else:
                     self.SUM_WORKDAY_PENALTY.append(sw_pena)
