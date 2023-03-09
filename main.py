@@ -110,6 +110,7 @@ class ShiftAnneal:
                             self.quadratic[key] = 2 * self.SUM_WORKDAY_PENALTY
 
     def setName(self, name_list: list):
+        self.NAME = []
         for name in name_list:
             if name in self.NAME:
                 print("Error: 同じ名前の人が複数存在します。")
@@ -121,45 +122,62 @@ class ShiftAnneal:
         self.MAN_SIZE = len(self.NAME)
 
     def setDesire(self, desire_list: list):
+        self.DESIRE = []
         if not self.MAN_SIZE:
             print("Error: 名前の登録を行ってから、希望度の設定をしてください。")
         elif len(desire_list) != self.MAN_SIZE:
             print("Error: 希望度の行数が設定された名前の数と一致しません。")
         else:
             for desire in desire_list:
-                if not self.DAY_SIZE:
+                if type(desire) != list:
+                    print("Error: 希望度は２次元配列である必要があります。")
+                elif not self.DAY_SIZE:
                     self.DAY_SIZE = len(desire)  # 最初だけ
                 elif len(desire) != self.DAY_SIZE:
                     print("Error: 希望度の列数が統一されていません。")
                 else:
                     for des in desire:
-                        if type(des) != int or des < 0:
+                        if type(des) != int:
                             print("Error: 希望度は非負整数である必要があります。")
-                    self.DESIRE.append(desire)
+                        elif des < 0:
+                            print("Error: 希望度は非負整数である必要があります。")
+                        else:
+                            self.DESIRE.append(desire)
 
     def setShift_Size_Limit(self, ssl_list: list):
+        self.SHIFT_SIZE_LIMIT = []
         if not self.DAY_SIZE:
             print("Error: 希望度の登録を行ってから、シフトサイズの設定をしてください。")
         elif len(ssl_list) != self.DAY_SIZE:
             print("Error: シフトサイズの数と希望度の列数が一致しません。")
         else:
             for ssl in ssl_list:
-                if ssl < 0 or type(ssl) != int:
+                if type(ssl) != int:
+                    print("Error: シフトサイズは非負整数である必要があります。")
+                elif ssl < 0:
                     print("Error: シフトサイズは非負整数である必要があります。")
                 else:
                     self.SHIFT_SIZE_LIMIT.append(ssl)
 
-    def setSum_Workday_Limit(self, sw_list: list):
+    def setSum_Workday_Limit(self, sw_list: list or int):
         if not self.MAN_SIZE:
             print("Error: 名前の登録を行ってから、勤務日数希望の設定をしてください。")
         elif len(sw_list) != self.MAN_SIZE:
             print("Error: 勤務日数希望の数と名前の数が一致しません。")
         else:
             for sw in sw_list:
-                if (type(sw) == list and len(sw) == 2) or type(sw) == int:
-                    self.SUM_WORKDAY_LIMIT.append(sw)
+                if type(sw) != list and type(sw) != int:
+                    print("Error: 勤務日数希望は非負整数か要素数2の整数配列である必要があります。")
+                elif type(sw) == list and (len(sw) != 2):
+                    print("Error: 勤務日数希望は非負整数か要素数2の整数配列である必要があります。")
+                elif type(sw) == list and (type(sw[0]) != int or type(sw[1]) != int):
+                    print("Error: 勤務日数希望は非負整数か要素数2の整数配列である必要があります。")
+                elif type(sw) == int and (not 0 <= sw <= self.DAY_SIZE):
+                    print("Error: 勤務日数希望は0以上希望度の列数以下である必要があります。")
+                elif type(sw) == list and (not 0 <= sw[0] <= self.DAY_SIZE) or (not 0 <= sw[1] <= self.DAY_SIZE):
+                    print("Error: 勤務日数希望は0以上希望度の列数以下である必要があります。")  # 分母が0のときは希望無しとして扱う
                 else:
-                    print("Error: 勤務日数希望は整数か要素数2の整数配列である必要があります。")
+                    self.SUM_WORKDAY_LIMIT.append(sw)
 
     def setDesire_Penalty(self, desire_penalty_list: list):
         if not self.DESIRE:
@@ -264,6 +282,7 @@ class ShiftAnneal:
             limit = self.SUM_WORKDAY_LIMIT
             if type(limit) == int:
                 limit = [limit, self.DAY_SIZE]
+
             num_unit = self.DAY_SIZE - limit[1] + 1
 
             for day_unit_id in range(0, num_unit):
