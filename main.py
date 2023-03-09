@@ -60,7 +60,8 @@ class ShiftAnneal:
                         if type(des) != int or (type(des) == int and des < 0):
                             print("Error: 希望度は非負整数である必要があります。")
                         else:
-                            self.DESIRE.append(desire)
+                            self.DESIRE_LEVEL = max(self.DESIRE_LEVEL, max(desire))
+                self.DESIRE.append(desire)
 
     def setShift_Size_Limit(self, ssl_list: list):
         self.SHIFT_SIZE_LIMIT = []
@@ -97,7 +98,7 @@ class ShiftAnneal:
     def setDesire_Penalty(self, desire_penalty_list: list):
         if not self.DESIRE:
             print("Error: 希望度の設定を行ってから、希望度のペナルティを設定してください。")
-        elif len(desire_penalty_list) - 1 < self.DESIRE_LEVEL:
+        elif len(desire_penalty_list) < self.DESIRE_LEVEL + 1:
             print("Error: 設定された希望度に対し、ペナルティの数が足りません。")
         else:
             for desire_pena in desire_penalty_list:
@@ -237,7 +238,7 @@ class ShiftAnneal:
             print("Error: データとパラメータの設定を行ってから、シフトサイズの制約式を設定してください。")
 
         for m in range(self.MAN_SIZE):
-            limit = self.SUM_WORKDAY_LIMIT
+            limit = self.SUM_WORKDAY_LIMIT[m]
             if type(limit) == int:
                 limit = [limit, self.DAY_SIZE]
 
@@ -250,7 +251,7 @@ class ShiftAnneal:
                 # 1次
                 for d in range(day_unit_id, day_unit_id + limit[1]):
                     key = "x_{0}".format(self.getID(m, d))
-                    liner_const = - 2 / num_unit * self.SUM_WORKDAY_LIMIT[m] * self.SUM_WORKDAY_PENALTY[m]
+                    liner_const = - 2 / num_unit * limit[0] * self.SUM_WORKDAY_PENALTY[m]
                     try:
                         self.liner[key] += liner_const
                     except KeyError:
@@ -293,10 +294,12 @@ class ShiftAnneal:
 
 
 def optimize(name, desire, desire_penalty, shift_size_limit, shift_size_penalty, sum_workday_limit,
-             sum_workday_penalty):
+             sum_workday_penalty, seq_penalty):
     model = ShiftAnneal()
     model.setRequiredData(name, desire, desire_penalty, shift_size_limit, shift_size_penalty, sum_workday_limit,
                           sum_workday_penalty)
     model.addRequiredConstraints()
+    model.setSeq_Penalty(seq_penalty)
+    model.addSeq_Constraint()
     model.sample()
     return model.getResult()
