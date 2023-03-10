@@ -360,4 +360,4 @@ def optimize(req_json):
 def main(request):
     request_json = request.get_json()
     result = optimize(request_json)
-    return json.dumps({"State": "success", "result": result}, ensure_ascii=False)
+    return json.dumps({"state": result[0], "result": result[1]}, ensure_ascii=False)
