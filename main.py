@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import dimod
 from neal import SimulatedAnnealingSampler
@@ -26,124 +28,148 @@ class ShiftAnneal:
         self.sample_set = None
         self.order = None
 
+        self.message = ""
+
     def getID(self, m, d):
         return self.DAY_SIZE * m + d + 100000000
 
+    def setMessage(self, mes):
+        self.message = mes
+
     def setName(self, name_list: list):
+        if self.message:
+            return
         self.NAME = []
         for name in name_list:
             if name in self.NAME:
-                print("Error: 同じ名前の人が複数存在します。")
+                self.setMessage("Error: 同じ名前の人が複数存在します。")
             elif (not name) or (len(name) > 10):
-                print("Error: 名前は1文字以上10文字以下で登録してください。")
+                self.setMessage("Error: 名前は1文字以上10文字以下で登録してください。")
             else:
                 self.NAME.append(str(name))
 
         self.MAN_SIZE = len(self.NAME)
 
     def setDesire(self, desire_list: list):
+        if self.message:
+            return
         self.DESIRE = []
         if not self.MAN_SIZE:
-            print("Error: 名前の登録を行ってから、希望度の設定をしてください。")
+            self.setMessage("Error: 名前の登録を行ってから、希望度の設定をしてください。")
         elif len(desire_list) != self.MAN_SIZE:
-            print("Error: 希望度の行数が設定された名前の数と一致しません。")
+            self.setMessage("Error: 希望度の行数が設定された名前の数と一致しません。")
         else:
             for desire in desire_list:
                 if type(desire) != list:
-                    print("Error: 希望度は２次元配列である必要があります。")
+                    self.setMessage("Error: 希望度は２次元配列である必要があります。")
+                    return
                 elif not self.DAY_SIZE:
                     self.DAY_SIZE = len(desire)  # 最初だけ
                 elif len(desire) != self.DAY_SIZE:
-                    print("Error: 希望度の列数が統一されていません。")
+                    self.setMessage("Error: 希望度の列数が統一されていません。")
+                    return
                 else:
                     for des in desire:
                         if type(des) != int or (type(des) == int and des < 0):
-                            print("Error: 希望度は非負整数である必要があります。")
+                            self.setMessage("Error: 希望度は非負整数である必要があります。")
+                            return
                         else:
                             self.DESIRE_LEVEL = max(self.DESIRE_LEVEL, max(desire))
                 self.DESIRE.append(desire)
 
     def setShift_Size_Limit(self, ssl_list: list):
+        if self.message:
+            return
         self.SHIFT_SIZE_LIMIT = []
         if not self.DAY_SIZE:
-            print("Error: 希望度の登録を行ってから、シフトサイズの設定をしてください。")
+            self.setMessage("Error: 希望度の登録を行ってから、シフトサイズの設定をしてください。")
         elif len(ssl_list) != self.DAY_SIZE:
-            print("Error: シフトサイズの数と希望度の列数が一致しません。")
+            self.setMessage("Error: シフトサイズの数と希望度の列数が一致しません。")
         else:
             for ssl in ssl_list:
                 if type(ssl) != int or (type(ssl) == int and ssl < 0):
-                    print("Error: シフトサイズは非負整数である必要があります。")
+                    self.setMessage("Error: シフトサイズは非負整数である必要があります。")
                 else:
                     self.SHIFT_SIZE_LIMIT.append(ssl)
 
     def setSum_Workday_Limit(self, swl_list: list or int):
+        if self.message:
+            return
         if not self.MAN_SIZE:
-            print("Error: 名前の登録を行ってから、勤務日数希望の設定をしてください。")
+            self.setMessage("Error: 名前の登録を行ってから、勤務日数希望の設定をしてください。")
         elif len(swl_list) != self.MAN_SIZE:
-            print("Error: 勤務日数希望の数と名前の数が一致しません。")
+            self.setMessage("Error: 勤務日数希望の数と名前の数が一致しません。")
         else:
             for sw in swl_list:
                 if (type(sw) != list and type(sw) != int) or (
                         type(sw) == list and len(sw) != 2) or (
                         type(sw) == int and (not 0 <= sw <= self.DAY_SIZE)
                 ):
-                    print("Error: 勤務日数希望は0以上希望度の列数以下の非負整数もしくは配列（要素数2）である必要があります。")
+                    self.setMessage("Error: 勤務日数希望は0以上希望度の列数以下の非負整数もしくは配列（要素数2）である必要があります。")
                 elif type(sw) == list and (type(sw[0]) != int or type(sw[1]) != int):
-                    print("Error: 勤務日数希望は0以上希望度の列数以下の非負整数もしくは配列（要素数2）である必要があります。")
+                    self.setMessage("Error: 勤務日数希望は0以上希望度の列数以下の非負整数もしくは配列（要素数2）である必要があります。")
                 elif type(sw) == list and (not 0 <= sw[0] <= self.DAY_SIZE or not 0 <= sw[1] <= self.DAY_SIZE):
-                    print("Error: 勤務日数希望は0以上希望度の列数以下の非負整数もしくは配列（要素数2）である必要があります。")
+                    self.setMessage("Error: 勤務日数希望は0以上希望度の列数以下の非負整数もしくは配列（要素数2）である必要があります。")
                 else:
                     self.SUM_WORKDAY_LIMIT.append(sw)
 
     def setDesire_Penalty(self, desire_penalty_list: list):
+        if self.message:
+            return
         if not self.DESIRE:
-            print("Error: 希望度の設定を行ってから、希望度のペナルティを設定してください。")
+            self.setMessage("Error: 希望度の設定を行ってから、希望度のペナルティを設定してください。")
         elif len(desire_penalty_list) < self.DESIRE_LEVEL + 1:
-            print("Error: 設定された希望度に対し、ペナルティの数が足りません。")
+            self.setMessage("Error: 設定された希望度に対し、ペナルティの数が足りません。")
         else:
             for desire_pena in desire_penalty_list:
                 if type(desire_pena) != int or (type(desire_pena) == int and desire_pena < 0):
-                    print("Error: 希望度のペナルティ値は非負整数である必要があります。")
+                    self.setMessage("Error: 希望度のペナルティ値は非負整数である必要があります。")
                 else:
                     self.DESIRE_PENALTY.append(desire_pena)
 
     def setSeq_Penalty(self, seq_penalty_list):
+        if self.message:
+            return
         if not self.MAN_SIZE:
-            print("Error: 名前の登録を行ってから、連勤のペナルティ値を設定してください。")
+            self.setMessage("Error: 名前の登録を行ってから、連勤のペナルティ値を設定してください。")
         else:
             for seq_penalty in seq_penalty_list:
                 if type(seq_penalty) != list or (type(seq_penalty) == list and len(seq_penalty) != 3):
-                    print("Error: 連勤のペナルティは「対象者(配列)」「制限するパターン(配列)」「ペナルティ係数」の３つが必要です。")
+                    self.setMessage("Error: 連勤のペナルティは「対象者(配列)」「制限するパターン(配列)」「ペナルティ係数」の３つが必要です。")
                 elif type(seq_penalty[0]) != list:
-                    print("Error: 連勤のペナルティの「対象者」は配列である必要があります。")
+                    self.setMessage("Error: 連勤のペナルティの「対象者」は配列である必要があります。")
                 elif type(seq_penalty[1]) != list or (type(seq_penalty[1]) == list and len(seq_penalty[1]) != 2):
-                    print("Error: 連勤のペナルティの「制限するパターン」は要素数2の配列である必要があります。")
+                    self.setMessage("Error: 連勤のペナルティの「制限するパターン」は要素数2の配列である必要があります。")
                 elif type(seq_penalty[2]) != int or (type(seq_penalty[2]) == int and seq_penalty[2] < 0):
-                    print("Error: 連勤のペナルティの「ペナルティ係数」は非負整数である必要があります。")
+                    self.setMessage("Error: 連勤のペナルティの「ペナルティ係数」は非負整数である必要があります。")
                 else:
                     self.SEQ_PENALTY.append(seq_penalty)
 
     def setShift_Size_Penalty(self, ssl_penalty_list: list):
+        if self.message:
+            return
         if not self.DAY_SIZE:
-            print("Error: 希望度の設定を行ってから、シフトサイズのペナルティを設定してください。")
+            self.setMessage("Error: 希望度の設定を行ってから、シフトサイズのペナルティを設定してください。")
         elif len(ssl_penalty_list) != self.DAY_SIZE:
-            print("Error: シフトサイズのペナルティの数と希望度の列数が一致しません。")
+            self.setMessage("Error: シフトサイズのペナルティの数と希望度の列数が一致しません。")
         else:
             for ssl_pena in ssl_penalty_list:
                 if type(ssl_pena) != int or (type(ssl_pena) == int and ssl_pena < 0):
-                    print("Error: シフトサイズのペナルティ値は非負整数である必要があります。")
+                    self.setMessage("Error: シフトサイズのペナルティ値は非負整数である必要があります。")
                 else:
                     self.SHIFT_SIZE_PENALTY.append(ssl_pena)
 
     def setSum_Workday_Penalty(self, sw_penalty_list: list):
+        if self.message:
+            return
         if not self.NAME:
-            print("Error: 名前の設定を行ってから、勤務日数希望のペナルティを設定してください。")
+            self.setMessage("Error: 名前の設定を行ってから、勤務日数希望のペナルティを設定してください。")
         elif len(sw_penalty_list) != self.MAN_SIZE:
-            print("Error: 勤務日数希望のペナルティの数と名前の数が一致しません。")
+            self.setMessage("Error: 勤務日数希望のペナルティの数と名前の数が一致しません。")
         else:
             for sw_pena in sw_penalty_list:
                 if type(sw_pena) != int or (type(sw_pena) == int and sw_pena < 0):
-                    print("Error: 勤務日数希望のペナルティ値は非負整数である必要があります。")
+                    self.setMessage("Error: 勤務日数希望のペナルティ値は非負整数である必要があります。")
                 else:
                     self.SUM_WORKDAY_PENALTY.append(sw_pena)
 
@@ -158,8 +184,10 @@ class ShiftAnneal:
         self.setSum_Workday_Penalty(sum_workday_penalty)
 
     def addDesire_Constraint(self):
+        if self.message:
+            return
         if not all([self.MAN_SIZE, self.DAY_SIZE, self.DESIRE, self.DESIRE_PENALTY]):
-            print("Error: データとパラメータの設定を行ってから、希望度の制約式を設定してください。")
+            self.setMessage("Error: データとパラメータの設定を行ってから、希望度の制約式を設定してください。")
         else:
             for i in range(self.MAN_SIZE):
                 for j in range(self.DAY_SIZE):
@@ -171,8 +199,10 @@ class ShiftAnneal:
                         self.liner[key] = liner_const
 
     def addSeq_Constraint(self):
+        if self.message:
+            return
         if not all([self.MAN_SIZE, self.DAY_SIZE]):
-            print("Error: データとパラメータの設定を行ってから、連勤の制約式を設定してください。")
+            self.setMessage("Error: データとパラメータの設定を行ってから、連勤の制約式を設定してください。")
 
         for seq_pena in self.SEQ_PENALTY:
             target = seq_pena[0]
@@ -180,7 +210,8 @@ class ShiftAnneal:
                 target = [_ for _ in range(self.MAN_SIZE)]
             for t in target:
                 if type(t) != int or (type(t) == int and t < 0):
-                    print("Error: 連勤制約の対象者は、非負整数の配列もしくは['all']である必要があります。")
+                    self.setMessage("Error: 連勤制約の対象者は、非負整数の配列もしくは['all']である必要があります。")
+                    return
 
             coefficient = []
             for pat in seq_pena[1]:
@@ -188,7 +219,7 @@ class ShiftAnneal:
                     a = int(pat.split("i")[0])
                     b = int(pat.split("i")[1])
                 except ValueError or IndexError or AttributeError:
-                    print("Error: 連勤制約のパターンの記述ルール(ex: -2i+4, 1i-11)に従っていません。")
+                    self.setMessage("Error: 連勤制約のパターンの記述ルール(ex: -2i+4, 1i-11)に従っていません。")
                     return
                 else:
                     coefficient.append([a, b])
@@ -208,8 +239,11 @@ class ShiftAnneal:
                         self.quadratic[key] = seq_pena[2]
 
     def addShift_Size_Constraint(self):
+        if self.message:
+            return
         if not all([self.MAN_SIZE, self.DAY_SIZE, self.SHIFT_SIZE_LIMIT, self.SHIFT_SIZE_PENALTY]):
-            print("Error: データとパラメータの設定を行ってから、シフトサイズの制約式を設定してください。")
+            self.setMessage("Error: データとパラメータの設定を行ってから、シフトサイズの制約式を設定してください。")
+            return
 
         for d in range(self.DAY_SIZE):
             # １次
@@ -234,8 +268,11 @@ class ShiftAnneal:
                         self.quadratic[key] = quad_const
 
     def addSum_Workday_Constraint(self):
+        if self.message:
+            return
         if not all([self.MAN_SIZE, self.DAY_SIZE, self.SUM_WORKDAY_LIMIT, self.SUM_WORKDAY_PENALTY]):
-            print("Error: データとパラメータの設定を行ってから、シフトサイズの制約式を設定してください。")
+            self.setMessage("Error: データとパラメータの設定を行ってから、シフトサイズの制約式を設定してください。")
+            return
 
         for m in range(self.MAN_SIZE):
             limit = self.SUM_WORKDAY_LIMIT[m]
@@ -276,6 +313,8 @@ class ShiftAnneal:
         self.addSum_Workday_Constraint()
 
     def sample(self):
+        if self.message:
+            return
         bqm = dimod.BinaryQuadraticModel(self.liner, self.quadratic, 0, "BINARY")
         SA_sampler = SimulatedAnnealingSampler()
         self.sample_set = SA_sampler.sample(bqm, num_reads=self.NUM_READS, beta_schedule_type="geometric",
@@ -283,6 +322,8 @@ class ShiftAnneal:
         self.order = np.argsort(self.sample_set.record["energy"])
 
     def getResult(self):
+        if self.message:
+            return [self.message, []]
         ret = []
         first = self.sample_set.record[self.order][0][0]
         for man in range(self.MAN_SIZE):
@@ -290,16 +331,33 @@ class ShiftAnneal:
             for day in range(self.DAY_SIZE):
                 tmp.append(int(first[man * self.DAY_SIZE + day]))  # ここのint()はjson化するときのために必要
             ret.append(tmp)
-        return ret
+        return [self.message, ret]
 
 
-def optimize(name, desire, desire_penalty, shift_size_limit, shift_size_penalty, sum_workday_limit,
-             sum_workday_penalty, seq_penalty):
+def optimize(req_json):
     model = ShiftAnneal()
-    model.setRequiredData(name, desire, desire_penalty, shift_size_limit, shift_size_penalty, sum_workday_limit,
-                          sum_workday_penalty)
-    model.addRequiredConstraints()
-    model.setSeq_Penalty(seq_penalty)
-    model.addSeq_Constraint()
-    model.sample()
+    try:
+        name = req_json["name"]
+        desire = req_json["desire"]
+        desire_penalty = req_json["desire_penalty"]
+        shift_size_limit = req_json["shift_size_limit"]
+        shift_size_penalty = req_json["shift_size_penalty"]
+        sum_workday_limit = req_json["sum_workday_limit"]
+        sum_workday_penalty = req_json["sum_workday_penalty"]
+        seq_penalty = req_json["seq_penalty"]
+    except KeyError:
+        model.setMessage("Error: jsonデータが適切ではありません。")
+    else:
+        model.setRequiredData(name, desire, desire_penalty, shift_size_limit, shift_size_penalty, sum_workday_limit,
+                              sum_workday_penalty)
+        model.addRequiredConstraints()
+        model.setSeq_Penalty(seq_penalty)
+        model.addSeq_Constraint()
+        model.sample()
     return model.getResult()
+
+
+def main(request):
+    request_json = request.get_json()
+    result = optimize(request_json)
+    return json.dumps({"State": "success", "result": result}, ensure_ascii=False)
