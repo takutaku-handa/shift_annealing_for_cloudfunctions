@@ -183,20 +183,39 @@ class ShiftAnneal:
         self.setSum_Workday_Limit(sum_workday_limit)
         self.setSum_Workday_Penalty(sum_workday_penalty)
 
+    def setLiner(self, key, const):
+        try:
+            self.liner[key] += const
+        except KeyError:
+            self.liner[key] = const
+
+    def setQuadratic(self, key, const):
+        try:
+            self.quadratic[key] += const
+        except KeyError:
+            self.quadratic[key] = const
+
     def addDesire_Constraint(self):
         if self.message:
             return
         if not all([self.MAN_SIZE, self.DAY_SIZE, self.DESIRE, self.DESIRE_PENALTY]):
             self.setMessage("Error: データとパラメータの設定を行ってから、希望度の制約式を設定してください。")
         else:
-            for i in range(self.MAN_SIZE):
-                for j in range(self.DAY_SIZE):
-                    key = "x_{0}".format(self.getID(i, j))
-                    liner_const = self.DESIRE_PENALTY[self.DESIRE[i][j]]
-                    try:
-                        self.liner[key] += liner_const
-                    except KeyError:
-                        self.liner[key] = liner_const
+            for m in range(self.MAN_SIZE):
+                target_d = []
+                for d in range(self.DAY_SIZE):
+                    if self.DESIRE[m][d]:
+                        target_d.append(d)
+                for d1 in range(len(target_d)):
+                    for d2 in range(d1, len(target_d)):
+                        key = ("x_{0}".format(self.getID(m, d1)), "x_{0}".format(self.getID(m, d2)))
+                        if d1 == d2:
+                            quad_const = self.DESIRE_PENALTY[self.DESIRE[m][d1]] * \
+                                         self.DESIRE_PENALTY[self.DESIRE[m][d2]]
+                        else:
+                            quad_const = 2 * self.DESIRE_PENALTY[self.DESIRE[m][d1]] * \
+                                         self.DESIRE_PENALTY[self.DESIRE[m][d2]]
+                        self.setQuadratic(key, quad_const)
 
     def addSeq_Constraint(self):
         if self.message:
@@ -233,10 +252,7 @@ class ShiftAnneal:
                     break
                 for m in target:
                     key = ("x_{0}".format(self.getID(m, d1)), "x_{0}".format(self.getID(m, d2)))
-                    try:
-                        self.quadratic[key] += seq_pena[2]
-                    except KeyError:
-                        self.quadratic[key] = seq_pena[2]
+                    self.setQuadratic(key, seq_pena[2])
 
     def addShift_Size_Constraint(self):
         if self.message:
@@ -250,10 +266,7 @@ class ShiftAnneal:
             for m in range(self.MAN_SIZE):
                 key = "x_{0}".format(self.getID(m, d))
                 liner_const = - 2 * self.SHIFT_SIZE_LIMIT[d] * self.SHIFT_SIZE_PENALTY[d]  # １シフトに入る人数制約による
-                try:
-                    self.liner[key] += liner_const
-                except KeyError:
-                    self.liner[key] = liner_const
+                self.setLiner(key, liner_const)
             # ２次
             for m1 in range(self.MAN_SIZE):
                 for m2 in range(m1, self.MAN_SIZE):
@@ -262,10 +275,7 @@ class ShiftAnneal:
                         quad_const = 1 * self.SHIFT_SIZE_PENALTY[d]
                     else:
                         quad_const = 2 * self.SHIFT_SIZE_PENALTY[d]
-                    try:
-                        self.quadratic[key] += quad_const
-                    except KeyError:
-                        self.quadratic[key] = quad_const
+                    self.setQuadratic(key, quad_const)
 
     def addSum_Workday_Constraint(self):
         if self.message:
@@ -289,10 +299,7 @@ class ShiftAnneal:
                 for d in range(day_unit_id, day_unit_id + limit[1]):
                     key = "x_{0}".format(self.getID(m, d))
                     liner_const = - 2 / num_unit * limit[0] * self.SUM_WORKDAY_PENALTY[m]
-                    try:
-                        self.liner[key] += liner_const
-                    except KeyError:
-                        self.liner[key] = liner_const
+                    self.setLiner(key, liner_const)
                 # 2次
                 for d1 in range(day_unit_id, day_unit_id + limit[1]):
                     for d2 in range(d1, day_unit_id + limit[1]):
@@ -301,10 +308,7 @@ class ShiftAnneal:
                             quad_const = 1 / num_unit * self.SUM_WORKDAY_PENALTY[m]
                         else:
                             quad_const = 2 / num_unit * self.SUM_WORKDAY_PENALTY[m]
-                        try:
-                            self.quadratic[key] += quad_const
-                        except KeyError:
-                            self.quadratic[key] = quad_const
+                        self.setQuadratic(key, quad_const)
 
     def addRequiredConstraints(self):
         self.addDesire_Constraint()
