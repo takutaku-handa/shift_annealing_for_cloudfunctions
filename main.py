@@ -21,7 +21,7 @@ class ShiftAnneal:
         self.SHIFT_SIZE_PENALTY = []  # d * 1
         self.SUM_WORKDAY_PENALTY = []  # m * 1
 
-        self.NUM_READS = 100  # int
+        self.NUM_READS = 10  # int
 
         self.liner = {}
         self.quadratic = {}
@@ -35,6 +35,14 @@ class ShiftAnneal:
 
     def setMessage(self, mes):
         self.message = mes
+
+    def setNumReads(self, num):
+        if type(num) != int or (type(num) == int and num < 1):
+            self.setMessage("Error: num_readsは正の整数である必要があります。")
+        elif num > 5000:
+            self.NUM_READS = 5000
+        else:
+            self.NUM_READS = num
 
     def setName(self, name_list: list):
         if self.message:
@@ -357,6 +365,8 @@ def optimize(req_json):
         if "seq_penalty" in req_json.keys():
             model.setSeq_Penalty(req_json["seq_penalty"])
             model.addSeq_Constraint()
+        if "num_reads" in req_json.keys():
+            model.setNumReads(req_json["num_reads"])
         model.sample()
     return model.getResult()
 
