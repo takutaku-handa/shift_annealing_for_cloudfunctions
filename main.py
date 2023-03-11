@@ -173,15 +173,11 @@ class ShiftAnneal:
                 else:
                     self.SUM_WORKDAY_PENALTY.append(sw_pena)
 
-    def setRequiredData(self, name, desire, desire_penalty, shift_size_limit, shift_size_penalty, sum_workday_limit,
-                        sum_workday_penalty):
+    def setRequiredData(self, name, desire, shift_size_limit, sum_workday_limit):
         self.setName(name)
         self.setDesire(desire)
-        self.setDesire_Penalty(desire_penalty)
         self.setShift_Size_Limit(shift_size_limit)
-        self.setShift_Size_Penalty(shift_size_penalty)
         self.setSum_Workday_Limit(sum_workday_limit)
-        self.setSum_Workday_Penalty(sum_workday_penalty)
 
     def setLiner(self, key, const):
         try:
@@ -343,20 +339,24 @@ def optimize(req_json):
     try:
         name = req_json["name"]
         desire = req_json["desire"]
-        desire_penalty = req_json["desire_penalty"]
         shift_size_limit = req_json["shift_size_limit"]
-        shift_size_penalty = req_json["shift_size_penalty"]
         sum_workday_limit = req_json["sum_workday_limit"]
-        sum_workday_penalty = req_json["sum_workday_penalty"]
-        seq_penalty = req_json["seq_penalty"]
     except KeyError:
-        model.setMessage("Error: jsonデータが適切ではありません。")
+        model.setMessage("Error: 名前, 出勤希望度, シフトサイズ, 勤務日数希望 は必須です。")
     else:
-        model.setRequiredData(name, desire, desire_penalty, shift_size_limit, shift_size_penalty, sum_workday_limit,
-                              sum_workday_penalty)
-        model.addRequiredConstraints()
-        model.setSeq_Penalty(seq_penalty)
-        model.addSeq_Constraint()
+        model.setRequiredData(name, desire, shift_size_limit, sum_workday_limit)
+        if "desire_penalty" in req_json.keys():
+            model.setDesire_Penalty(req_json["desire_penalty"])
+            model.addDesire_Constraint()
+        if "shift_size_penalty" in req_json.keys():
+            model.setShift_Size_Penalty(req_json["shift_size_penalty"])
+            model.addShift_Size_Constraint()
+        if "sum_workday_penalty" in req_json.keys():
+            model.setSum_Workday_Penalty(req_json["sum_workday_penalty"])
+            model.addSum_Workday_Constraint()
+        if "seq_penalty" in req_json.keys():
+            model.setSeq_Penalty(req_json["seq_penalty"])
+            model.addSeq_Constraint()
         model.sample()
     return model.getResult()
 
