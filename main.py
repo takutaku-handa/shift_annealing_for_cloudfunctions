@@ -210,8 +210,10 @@ class ShiftAnneal:
                 for d in range(self.DAY_SIZE):
                     if self.DESIRE[m][d]:
                         target_d.append(d)
-                for d1 in range(len(target_d)):
-                    for d2 in range(d1, len(target_d)):
+                for id_d1 in range(len(target_d)):
+                    d1 = target_d[id_d1]
+                    for id_d2 in range(id_d1, len(target_d)):
+                        d2 = target_d[id_d2]
                         key = ("x_{0}".format(self.getID(m, d1)), "x_{0}".format(self.getID(m, d2)))
                         if d1 == d2:
                             quad_const = self.DESIRE_PENALTY[self.DESIRE[m][d1]] * \
